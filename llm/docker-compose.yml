@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  llm-runtime-system:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ai-runtime-compiler
+    ports:
+      - "8080:8080"
+    environment:
+      # Spring configuration
+      - SPRING_PROFILES_ACTIVE=container
+      - SPRING_AI_OPENAI_BASE_URL=http://host.containers.internal:1234
+      - SPRING_AI_OPENAI_API_KEY=not-needed
+      - SPRING_AI_OPENAI_CHAT_OPTIONS_MODEL=deepseek-coder-v2-lite-instruct
+
+      # DevTools configuration (disabled in container)
+      - SPRING_DEVTOOLS_RESTART_ENABLED=false
+      - SPRING_DEVTOOLS_LIVERELOAD_ENABLED=false
+
+      # JVM options
+      - JAVA_OPTS=-XX:+EnableDynamicAgentLoading -Djava.awt.headless=true -Xmx1g -Xms512m
+
+    volumes:
+      # Optional: Mount for persistent logs
+      - ./logs:/app/logs
+
+    networks:
+      - ai-network
+
+    restart: unless-stopped
+
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: "1536M"
+          cpus: "1.0"
+        reservations:
+          memory: "512M"
+          cpus: "0.5"
+
+networks:
+  ai-network:
+    driver: bridge
+
+volumes:
+  app-logs:
+    driver: local

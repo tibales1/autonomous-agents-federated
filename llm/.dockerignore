@@ -1,0 +1,37 @@
+# Maven
+target/
+!target/llm-*.jar
+
+# IDE
+.vscode/
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Logs
+*.log
+logs/
+
+# Docker
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Development
+.reloadtrigger
+mvnw
+mvnw.cmd
+.mvn/
+
+# Other
+README.md
+deploy.sh

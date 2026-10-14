@@ -3,7 +3,12 @@
 > *"The next Turing test evaluating AGI is when a human does not question the results."*
 > — Thomas Bales, 2025
 
-This repository holds two related architecture designs for self-directed AI agent systems. They work at **two different scales**, and this README keeps them separate:
+> **Project status: research design and prototype, parked.** The author is finishing graduate school at UT Austin and plans to resume work around mid-2027. Everything here is public so the ideas and code can be read and built on. Issues are welcome, but replies may be slow.
+
+This repository holds two related architecture designs for self-directed AI agent systems, plus one working code prototype:
+
+- **Part 1 and Part 2 are designs** (PDF diagrams). They work at **two different scales**, and this README keeps them separate.
+- **Part 3 is code**: [`llm/`](llm/), a Java service that shows the *live bytecode injection* idea from Part 2 actually running.
 
 | | **Part 1 — Boss Agent** | **Part 2 — Organic AI Growth (Federated)** |
 |---|---|---|
@@ -13,6 +18,7 @@ This repository holds two related architecture designs for self-directed AI agen
 | **Intelligence** | Small Language Models (SLMs), one per sub-agent | Foundational LLM ("Brain") + SME SLMs in pods |
 | **Direction** | Pipeline: prompt → code → tool → summary | Two-way: Brain ⇄ Brain, Brain ⇄ K8, Pod ⇄ Pod |
 | **Diagram** | [`docs/boss-agent.pdf`](docs/boss-agent.pdf) | [`docs/organic-ai-growth-federated.pdf`](docs/organic-ai-growth-federated.pdf) |
+| **Code** | Uses the same model as Part 3 (DeepSeek-Coder) | **Part 3, [`llm/`](llm/)**, prototypes the "inject live Java bytecode" pod capability |
 
 **In one sentence:** a **Boss Agent** is the worker, and **Organic AI Growth** is the federated system those workers live, grow, and migrate in.
 
@@ -22,7 +28,8 @@ This repository holds two related architecture designs for self-directed AI agen
 
 - [Part 1 — Boss Agent (Free Agent Architecture)](#part-1--boss-agent-free-agent-architecture)
 - [Part 2 — Organic AI Growth (Federated Architecture)](#part-2--organic-ai-growth-federated-architecture)
-- [How the two parts fit together](#how-the-two-parts-fit-together)
+- [Part 3 — `llm/`: Runtime Bytecode Injection (code)](#part-3--llm-runtime-bytecode-injection-code)
+- [How the parts fit together](#how-the-parts-fit-together)
 - [Repository layout](#repository-layout)
 
 ---
@@ -184,7 +191,27 @@ Pods in different clusters talk to each other directly (**Pod ⇄ Pod**). They a
 
 ---
 
-## How the two parts fit together
+## Part 3 — `llm/`: Runtime Bytecode Injection (code)
+
+**This is the only runnable part of the repo.** Parts 1 and 2 are designs. Part 3 builds one specific capability from Part 2:
+
+> *"SME SLMs for Pods — can inject live Java bytecode into containers"*
+
+**In plain terms:** normally, changing a Java program means editing the source, rebuilding and restarting it. This service skips those steps. You send Java **source code over HTTP**, and the service **compiles it in memory, loads it into the already-running program and runs it**. A local AI model (DeepSeek-Coder) can write or optimize that code. Together, those let an AI agent **change running software inside a container without restarting it**.
+
+| Piece | What it is |
+|---|---|
+| **Prompt side** | `POST /api/chat`, `POST /api/chat/bytecode`: send a prompt to the local DeepSeek-Coder SLM (for example, "write an ASM transformation for this method") |
+| **Bytecode side** | `POST /api/chat/runtime/compile` · `execute` · `modify`: compile, load, run, and redefine Java classes **inside the live JVM** |
+| **Stack** | Java 21 · Spring Boot 3.3 · Spring AI · `javax.tools` compiler · ByteBuddy · ASM · Podman/Docker |
+
+**Status:** prototype. Compile and execute work. Method modification is experimental. The runtime endpoints run any code sent to them and have **no authentication**, so run the service only on a trusted network.
+
+→ **Full details, endpoints and run instructions: [`llm/README.md`](llm/README.md)**
+
+---
+
+## How the parts fit together
 
 ```mermaid
 flowchart LR
@@ -192,6 +219,7 @@ flowchart LR
     K8 -- "sets operating constraints" --> BA["Boss Agent swarm<br/>(Part 1)"]
     BA -- "runs inside" --> POD["AI Pod as Specialist<br/>(Part 2)"]
     BA -- "results & new capabilities" --> BR
+    SLM["SME SLM + bytecode injection<br/>(Part 3 · llm/)"] -- "changes live code in" --> POD
 ```
 
 - A **Boss Agent** (Part 1) is what an **AI Pod in the Specialist role** (Part 2) looks like inside.
@@ -204,7 +232,7 @@ flowchart LR
 | Picking the right model for each sub-task | **Part 1:** one custom SLM per agent |
 | Business rules and requirements | **Part 2:** Live RAG + Middleware Brain |
 | Role changes, scaling, migration | **Part 2:** AI Pod lifecycle on federated K8 |
-| Changing code that is already running | **Part 2:** SME SLMs injecting live Java bytecode |
+| Changing code that is already running | **Part 2** (design) → **Part 3** (working prototype in `llm/`) |
 
 ---
 
@@ -213,9 +241,17 @@ flowchart LR
 ```
 .
 ├── README.md                              ← you are here
-└── docs/
-    ├── boss-agent.pdf                     ← Part 1: Boss Agent / Free Agent Architecture
-    └── organic-ai-growth-federated.pdf    ← Part 2: Organic AI Growth / Federated K8
+├── docs/
+│   ├── boss-agent.pdf                     ← Part 1: Boss Agent / Free Agent Architecture
+│   └── organic-ai-growth-federated.pdf    ← Part 2: Organic AI Growth / Federated K8
+└── llm/                                   ← Part 3: runnable Java prototype (see llm/README.md)
+    ├── src/main/java/com/ai/llm/
+    │   ├── ChatController.java            ← REST endpoints (prompt + runtime)
+    │   ├── RuntimeBytecodeService.java    ← in-memory compile, load, execute, redefine
+    │   └── LlmApplication.java            ← Spring Boot entry point
+    ├── src/main/resources/                ← local and container configs
+    ├── Dockerfile · docker-compose.yml · deploy.bat
+    └── docs/                              ← generated Javadoc
 ```
 
 ---
